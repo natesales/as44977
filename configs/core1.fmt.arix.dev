@@ -1,0 +1,74 @@
+frr version 7.5
+frr defaults traditional
+hostname core1
+log syslog informational
+rpki
+  rpki polling_period 3600
+  rpki cache rtr.rpki.cloudflare.com 8282 preference 1
+  exit
+hostname core1.fmt.arix.dev
+service integrated-vtysh-config
+!
+ip route 44.190.43.0/24 reject
+ipv6 route 2a0e:8f00:fdd0::/48 reject
+!
+router bgp 44977
+ no bgp default ipv4-unicast
+ neighbor ARIX_PEER peer-group
+ neighbor ARIX_PEER6 peer-group
+ neighbor 44.190.42.253 remote-as 47192
+ neighbor 44.190.42.253 peer-group ARIX_PEER
+ neighbor 44.190.42.254 remote-as 47192
+ neighbor 44.190.42.254 peer-group ARIX_PEER
+ neighbor 2a0e:8f00:fddd::253 remote-as 47192
+ neighbor 2a0e:8f00:fddd::253 peer-group ARIX_PEER6
+ neighbor 2a0e:8f00:fddd::254 remote-as 47192
+ neighbor 2a0e:8f00:fddd::254 peer-group ARIX_PEER6
+ neighbor 23.141.112.1 remote-as 34553
+ neighbor 2001:678:c4c::1 remote-as 34553
+ !
+ address-family ipv4 unicast
+  network 44.190.43.0/24
+  neighbor ARIX_PEER activate
+  neighbor ARIX_PEER soft-reconfiguration inbound
+  neighbor ARIX_PEER route-map IMPORT in
+  neighbor ARIX_PEER route-map LOCAL4 out
+  neighbor 23.141.112.1 activate
+  neighbor 23.141.112.1 route-map IMPORT in
+  neighbor 23.141.112.1 route-map LOCAL4 out
+ exit-address-family
+ !
+ address-family ipv6 unicast
+  network 2a0e:8f00:fdd0::/48
+  neighbor ARIX_PEER6 activate
+  neighbor ARIX_PEER6 soft-reconfiguration inbound
+  neighbor ARIX_PEER6 route-map IMPORT in
+  neighbor ARIX_PEER6 route-map LOCAL6 out
+  neighbor 2001:678:c4c::1 activate
+  neighbor 2001:678:c4c::1 route-map IMPORT in
+  neighbor 2001:678:c4c::1 route-map LOCAL6 out
+ exit-address-family
+!
+ip prefix-list LOCAL4 seq 1 permit 44.190.43.0/24
+!
+ipv6 prefix-list LOCAL6 seq 1 permit 2a0e:8f00:fdd0::/48
+!
+route-map IMPORT permit 1
+ match rpki valid
+ set local-preference 105
+!
+route-map IMPORT permit 5
+ match rpki notfound
+ set local-preference 100
+!
+route-map IMPORT deny 10
+!
+route-map LOCAL4 permit 1
+ match ip address prefix-list LOCAL4
+!
+route-map LOCAL6 permit 1
+ match ipv6 address prefix-list LOCAL6
+!
+line vty
+!
+
